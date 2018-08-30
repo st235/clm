@@ -3,23 +3,40 @@
 
 #include "args_parser.h"
 
-#include <iostream>
 #include <utility>
 
 namespace args {
 
-ArgsParser::ArgsParser(std::vector<std::string> args_list) :
-                      args_list_(std::move(args_list)) {
+ArgsParser::ArgsParser() = default;
+
+std::unique_ptr<ArgsParser> ArgsParser::Create() {
+  return std::make_unique<ArgsParser>();
 }
 
-std::unique_ptr<ArgsParser> ArgsParser::Compile(int argc, char* argv[]) {
-  std::vector<std::string> args_list;
+void ArgsParser::Add(const std::string& key, Callback callback) {
+  commands_.emplace(std::make_pair(key, callback));
+}
 
+void ArgsParser::Compile(int argc, char* argv[]) {
   for (int i = 0; i < argc; i++) {
-    args_list.emplace_back(std::string(argv[i]));
-  }
+    std::string current_argument(argv[i]);
 
-  return std::make_unique<ArgsParser>(std::move(args_list));
+    if (!Contains(current_argument)) {
+      continue;
+    }
+
+    const auto& callback = commands_[current_argument];
+
+    std::string next_argument(i + 1 < argc ? argv[i + 1] : "");
+    bool is_key = Contains(next_argument);
+
+    auto value = std::make_unique<Value>(is_key ? "" : next_argument);
+    callback(std::move(value));
+  }
+}
+
+bool ArgsParser::Contains(const std::string& key) {
+  return commands_.find(key) != commands_.end();
 }
 
 }  // namespace args
